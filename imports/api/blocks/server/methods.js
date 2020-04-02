@@ -10,19 +10,25 @@ Meteor.methods({
         else console.log("start to sync");
         
         let lastBlock = Blocks.findOne({},{sort:{height:-1}});
+        let lastHeight = 1;
         let latestHeight = 0;
+
+        if (lastBlock && lastBlock.height){
+            lastHeight = lastBlock.height
+        }
+
         try {
             let url = RPC+"/status"
             let response = HTTP.get(url);
             latestHeight = JSON.parse(response.content);
             latestHeight = parseInt(latestHeight.result.sync_info.latest_block_height);
             console.log(latestHeight);
-
-            if (latestHeight > (lastBlock.height || 1)){
+            
+            if (latestHeight > lastHeight){
                 SYNCING = true;
                 Meteor.clearInterval(timerBlocks);
 
-                let height = lastBlock.height || 1;
+                let height = lastHeight;
 
                 for (let h=height; h <= latestHeight; h++){
                     let url = RPC+"/block?height="+h;
@@ -45,7 +51,8 @@ Meteor.methods({
                         });
                     }
                     catch (e){
-
+                        SYNCING = false
+                        return latestHeight;
                     }
                 }
                 SYNCING = false
@@ -53,6 +60,8 @@ Meteor.methods({
         }
         catch(e){
             console.log(e)
+            SYNCING = false
+            return latestHeight;
         }
 
         return latestHeight;
